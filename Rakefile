@@ -232,7 +232,11 @@ scheme_configurations.each do |build|
       build_command = "#{build_command} #{@config['additional_build_options']}"
     end
 
-    sh build_command
+    begin
+      sh build_command
+    rescue Exception => e
+      throw "Build command #{build_command} failed: #{e}"
+    end
 
     # Move built app into artifacts path to statisfy file dependancy
     FileUtils.cp_r("#{@build_path}/#{build['scheme']}-#{build['configuration']}_build/#{product_name}.app", app_path)
