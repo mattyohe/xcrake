@@ -40,7 +40,9 @@ def get_build_settings(build)
       value = value[0..-2]
 
       key = key[4..-1]
-      hash[key] = value
+      if hash[key].nil?
+        hash[key] = value
+      end
     end
   end
   return hash
