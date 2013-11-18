@@ -108,7 +108,7 @@ def check_new_version
   end
 end
 
-@xcrake_version = '1.0.0'
+@xcrake_version = '1.0.1b1'
 puts "xcrake version: #{@xcrake_version}"
 
 check_new_version
