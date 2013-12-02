@@ -14,6 +14,7 @@ A Rakefile to build iOS projects. Get the latest [here](https://github.com/willo
 * Installs committed provisioning profiles for building
 * Can resign using committed provisioning profiles without installing the profile
 * Supports using custom build tools (like [xctool](https://github.com/facebook/xctool))
+* Verifies signing certificates (Are they revoked?)
 
 # Usage
 

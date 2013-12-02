@@ -28,6 +28,39 @@ require 'plist'
 require 'openssl'
 require 'rest-client'
 
+def cert_valid?(common_name, sha1)
+  certs = `security find-certificate -c "#{common_name}" -Z -p -a`
+  end_certificate = "-----END CERTIFICATE-----"
+  state = :searching
+  cert = ""
+
+  certs.lines.each do |line|
+    case state
+      when :searching
+ 
+        if line.include? sha1
+          state = :found_hash
+        end
+ 
+      when :found_hash
+        cert << line
+      if line.include? end_certificate
+        state = :did_end
+      end
+      when :did_end
+    end
+  end
+
+  if cert.empty?
+    throw 'Failed to find Signing Certificate'
+  end
+
+  File.open("#{@build_path}/pem", 'w') {|f| f.write(cert) }
+  system("security verify-cert -c \"#{@build_path}/pem\"")
+  File.unlink("#{@build_path}/pem")
+  return $?.success?
+end
+
 # Gets build settings from xcodebuild given a build from the config
 def get_build_settings(build)
   hash = Hash.new
@@ -40,7 +73,9 @@ def get_build_settings(build)
       value = value[0..-2]
 
       key = key[4..-1]
-      hash[key] = value
+      if hash[key].nil?
+        hash[key] = value
+      end
     end
   end
   return hash
@@ -106,7 +141,7 @@ def check_new_version
   end
 end
 
-@xcrake_version = '1.0.0'
+@xcrake_version = '1.0.1'
 puts "xcrake version: #{@xcrake_version}"
 
 check_new_version
@@ -218,6 +253,12 @@ scheme_configurations.each do |build|
       installed_profile_name = parse_provisioning_proflie(checked_in_profile_path)['uuid']
     end
 
+    puts 'Verifying Signing Certificate'
+    unless cert_valid?(build['signing_identity'], build['signing_identity_SHA1'])
+      throw 'Failed to verify Signing Certificate'
+    end
+    puts 'Certificate Valid'
+
     # Perform build using build settings and config values
     build_command = "#{@build_tool} -#{project_type} \"#{project_file_name}\"\
      CONFIGURATION_BUILD_DIR=\"$PWD/#{@build_path}/#{build['scheme']}-#{build['configuration']}_build\"\
@@ -232,7 +273,11 @@ scheme_configurations.each do |build|
       build_command = "#{build_command} #{@config['additional_build_options']}"
     end
 
-    sh build_command
+    begin
+      sh build_command
+    rescue Exception => e
+      throw "Build command #{build_command} failed: #{e}"
+    end
 
     # Move built app into artifacts path to statisfy file dependancy
     FileUtils.cp_r("#{@build_path}/#{build['scheme']}-#{build['configuration']}_build/#{product_name}.app", app_path)
@@ -283,6 +328,12 @@ end
 
     # Embed new profile
     FileUtils.cp_r(prov_profile_path,"#{app_path}/embedded.mobileprovision")
+
+    puts 'Verifying Signing Certificate'
+    unless cert_valid?(build['signing_identity'], build['signing_identity_SHA1'])
+      throw 'Failed to verify Signing Certificate'
+    end
+    puts 'Certificate Valid'
 
     # Resign application using correct profile and entitlements
     $stderr.puts "running /usr/bin/codesign -f -s \"#{dev_id}\" --resource-rules=\"#{app_path}/ResourceRules.plist\" \"#{app_path}\""
