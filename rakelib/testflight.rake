@@ -28,7 +28,7 @@ namespace 'testflight' do
         response = e.response
       end
 
-      if (response.code == 201) || (response.code == 200)
+      if response && (response.code == 201) || (response.code == 200)
         puts "Upload complete."
       else
         throw "TestFlight upload failed: (#{response})"
